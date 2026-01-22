@@ -86,6 +86,8 @@ function processText(text) {
 	return response;
 }
 
+const TELEGRAM_LIMIT = 4050;
+
 // ===== Cloudflare Worker Webhook Handler =====
 export default {
 	async fetch(req, env) {
@@ -97,12 +99,21 @@ export default {
 		if (!message?.text) return new Response('OK');
 
 		const chatId = message.chat.id;
+		const inputText = message.text.trim();
 
-		// Reply for /start or process codes
-		const replyText =
-			message.text === '/start'
-				? 'Send me a list of codes.\n\nI will:\n• Show invalid codes with original numbers\n• Show duplicate codes with original numbers\n• Give final unique valid codes'
-				: processText(message.text);
+		let replyText;
+		if (message.text === '/start') {
+			replyText =
+				'Send me a list of codes.\n\n' +
+				'I will:\n' +
+				'• Show invalid codes with original numbers\n' +
+				'• Show duplicate codes with original numbers\n' +
+				'• Give final unique valid codes';
+		} else if (inputText.length > TELEGRAM_LIMIT) {
+			replyText = '⚠️ Your input is too long.\n\n' + 'Telegram allows a maximum of 4096 characters.\n';
+		} else {
+			replyText = processText(inputText);
+		}
 
 		await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
 			method: 'POST',
