@@ -11,6 +11,22 @@ function isValidCode(code) {
 // Emojis for duplicate groups
 const DUPLICATE_MARKS = ['🔴', '🟡', '🔵', '🟣', '🟠', '🟤', '⚫'];
 
+// Split long Telegram messages (4096 limit)
+function splitMessage(text, limit = 4000) {
+	const parts = [];
+	let current = '';
+
+	for (const line of text.split('\n')) {
+		if ((current + line + '\n').length > limit) {
+			parts.push(current);
+			current = '';
+		}
+		current += line + '\n';
+	}
+	if (current) parts.push(current);
+	return parts;
+}
+
 // Process incoming text and return formatted response
 function processText(text) {
 	const lines = text.split(/\s+/);
@@ -104,15 +120,20 @@ export default {
 				? 'Send me a list of codes.\n\nI will:\n• Show invalid codes with original numbers\n• Show duplicate codes with original numbers\n• Give final unique valid codes'
 				: processText(message.text);
 
-		await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				chat_id: chatId,
-				text: replyText,
-				parse_mode: 'Markdown',
-			}),
-		});
+		// 🔥 FIX: split long messages
+		const messages = splitMessage(replyText);
+
+		for (const msgPart of messages) {
+			await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					chat_id: chatId,
+					text: msgPart,
+					parse_mode: 'Markdown',
+				}),
+			});
+		}
 
 		return new Response('OK');
 	},
